@@ -1,0 +1,9 @@
+# build folder
+[Bb]uild
+
+#clang files
+.cache
+compile_commands.json
+
+#vscode files
+.vscode
