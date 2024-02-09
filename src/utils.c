@@ -59,5 +59,5 @@ void calc_sendcounts(float *weights, int* out, int vsize)
 
   for (int i = 1; i < numProcs-1; i++)
     out[i] = out[i+1] - out[i];
-  out[numProcs] = vsize - out[numProcs];
+  out[numProcs-1] = vsize - out[numProcs-1];
 }
