@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "macros.h"
+#include <math.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,14 +51,23 @@ void calc_sendcounts(float *weights, int* out, int vsize)
   for (int i = 0; i < numProcs; i++)
     shares[i] = weights[i] / sum;
 
-  //make shares cummulative
-  for (int i = 1; i < numProcs; i++)
-    shares[i] += shares[i-1];
+  out[numProcs-1] = vsize - roundf(shares[numProcs-1]*vsize);
+  out[0] = 0;
+  for (int i = numProcs-2; i > 0; i--)
+    out[i] = out[i+1] -  roundf(shares[i]*vsize);
 
-  for (int i = 0; i < numProcs; i++)
-    out[i] = shares[i]*vsize;
-
-  for (int i = 1; i < numProcs-1; i++)
+  for (int i = 0; i < numProcs-1; i++)
     out[i] = out[i+1] - out[i];
   out[numProcs-1] = vsize - out[numProcs-1];
+}
+
+char* to_str_vector(int* arr, int size)
+{
+  static char buff[256] = {'\0'};
+  buff[0] = '\0';
+  for (int i = 0; i < size; i++)
+  {
+    sprintf(buff, "%s %d",buff,arr[i]);
+  }
+  return buff;
 }

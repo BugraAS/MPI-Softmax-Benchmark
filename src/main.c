@@ -16,9 +16,9 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   if(ISROOT) DEBUGLOG("There are %d processes", numProcs)
 
-  if (argc < 4)
+  if (argc < 5)
     ABORT("insufficent parameters.\n"
-          "Usage: %s [benchmark-file] [size-of-vector] [number-of-iterations]",
+          "Usage: %s [benchmark-file] [size-of-vector] [number-of-iterations] [label]",
           argv[0])
   
   float* locvec; // local vector
@@ -30,8 +30,9 @@ int main(int argc, char *argv[]) {
 
   if (ISROOT) {
     float *bmark = read_benchmark(argv[1]);
-    for (int i = 0; i < numProcs; i++)
-      bmark[i] = 1 / bmark[i];
+    // benchmarks contain speed and not execution time
+    // for (int i = 0; i < numProcs; i++)
+    //   bmark[i] = 1 / bmark[i];
     DEBUGLOG("found and read benchmark")
 
     bigvsize = atoi(argv[2]);
@@ -51,9 +52,12 @@ int main(int argc, char *argv[]) {
     DEBUGLOG("created displs successfully")
   }
 
+  if(ISROOT)
+    DEBUGLOG("sizes: %s", to_str_vector(sendcounts,numProcs))
+
   MPI_Scatter(sendcounts, 1, MPI_INT, &locvsize, 1, MPI_INT, 0, MPI_COMM_WORLD);
   locvec = malloc(sizeof(float)*locvsize);
-  if(ISROOT) DEBUGLOG("successfully created local vectors")
+  // if(ISROOT) DEBUGLOG("successfully created local vectors")
 
   double total = 0;
   int num_iter = atoi(argv[3]);
@@ -65,11 +69,11 @@ int main(int argc, char *argv[]) {
       srand(time(NULL));
       for (int i = 0; i < bigvsize; i++)
         bigvec[i] = 2000.0f * rand() / (float)RAND_MAX - 1000.0f;
-      DEBUGLOG("randomized the bigvector")
+      // DEBUGLOG("randomized the bigvector")
     }
 
     MPI_Scatterv(bigvec, sendcounts, displs, MPI_FLOAT, locvec, locvsize, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    DEBUGLOG("scatterv successful at id: %d",myId)
+    // DEBUGLOG("scatterv successful at id: %d",myId)
 
     double t1 = MPI_Wtime();
 
@@ -79,6 +83,7 @@ int main(int argc, char *argv[]) {
 
     float bigsum = 0;
     MPI_Allreduce(&locsum, &bigsum, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    // DEBUGLOG("allreduce successful at id: %d",myId)
 
     for (int i = 0; i < locvsize; i++)
       locvec[i] = expf(locvec[i])/bigsum;
@@ -86,16 +91,18 @@ int main(int argc, char *argv[]) {
     double t2 = MPI_Wtime();
 
     // MPI_Gatherv(locvec, locvsize, MPI_FLOAT, bigvec, sendcounts, displs, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    double delta = t2-t1;
+    double mdelta;
+    MPI_Reduce(&delta, &mdelta, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
-    total += t2-t1;
+    if(ISROOT)
+      total += t2-t1;
   }
 
-  double bigtotal = 0;
-  MPI_Reduce(&total, &bigtotal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  // DEBUGLOG("finished calculations at %d",myId)
 
-  DEBUGLOG("finished calculations at %d",myId)
   if(ISROOT){
-    printf("Avg. time: %16lf, benchmark: %32s\n",bigtotal/numProcs,argv[1]);
+    printf("nProc: %3d, Avg. time: %10lf, iters: %4d, vsize: %9d, label: %10s, benchmark: %32s\n",numProcs,total,num_iter,bigvsize,argv[4],argv[1]);
   }
 
 
